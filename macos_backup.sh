@@ -1,43 +1,43 @@
+s3url="s3://nickysemenza-backups/laptop/"
 cd `dirname $0`
-mkdir -p output
-cd output
+mkdir -p output && cd output
 
-ls /Applications > applications_all.txt && echo "saved a list of installed Applications"
-mas list > applications_mas.txt && echo "saved a list of installed app store applications"
-brew cask list > applications_homebrewcask.txt && echo "saved a list of installed homebrew cask applications"
-brew list > homebrew_packages.txt && echo "saved a list of installed homebrew packages"
-npm -g ls --depth=0 > npm_global_packages.txt && echo "saved a list of installed global npm packages"
-gem list > gem_global_packages.txt && echo "saved a list of installed global rubygem packages"
-pip list > python2_packages.txt && echo "saved a list of installed global python2 packages"
-pip3 list > python3_packages.txt && echo "saved a list of installed global python3 packages"
+cmds=("mas list" "brew cask list" "brew list" "npm -g ls --depth=0" "gem list" "pip list" "pip3 list")
+for i in "${cmds[@]}"
+do
+	dest="${i// /_}.txt" #replace spaces with underscore, .txt
+	$i > $dest && echo "saved $i to $dest"
+done
 
-cp -r /usr/local/etc/ brew_etc && echo "copied homebrew /usr/local/etc"
-mkdir -p privateconfig
-cd privateconfig
-cp -r ~/.aws .aws && echo "copied ~/.aws"
-cp -r ~/.ngrok2 .ngrok2 && echo "copied ~/.ngrok2"
-cp -r ~/.ssh .ssh && echo "copied ~/.ssh"
-cp -r ~/.config .config && echo "copied ~/.config"
-cd ..
+python ../macos_app_audit.py > macos_app_audit.txt
 
-mkdir -p dbdumps/mysql
-mkdir -p dbdumps/redis
-mkdir -p dbdumps/mongo
-cd dbdumps/mysql/
+cp -r /usr/local/etc/ usr_local_etc && echo "copied homebrew /usr/local/etc"
+
+#secure dotfiles
+mkdir -p secure_dotfiles
+dotfiles=(".aws" ".ngrok2" ".ssh" ".config")
+for i in "${dotfiles[@]}"
+do
+	cp -r ~/$i secure_dotfiles/$i && echo "copied ~/$i"
+done
+
+# MYSQL
+mkdir -p dbdumps/mysql && cd dbdumps/mysql/
 mysql --host=localhost -uroot -proot -e 'show databases' | while read dbname; do mysqldump -uroot -proot --complete-insert "$dbname" > "$dbname".sql; done
 echo "dumped brew mysql db"
-cd ../redis #to /dbdumps/redis
-redis-dump > redis_db0.txt && echo "saved redis db0"
-cd .. #back up to /dbdumps
+
+# MONGO
+cd .. && mkdir -p mongo
 mongodump --out mongo/ && echo "saved mongodb"
+
+# pack
 cd ../.. #back up to root dir
 now=$(date +%Y-%m-%d.%H:%M:%S)
 archivename="backup_$now.tar.gz"
-
 tar czvf ${archivename} output/
-rm -rf output/
+# rm -rf output/
 # ship off to S3 bucket (using: brew info awscli)
 echo "uploading to S3"
-aws s3 cp $archivename s3://nickysemenza-backups/laptop/
+# aws s3 cp $archivename $s3url
 rm $archivename
-echo "DONE"
+echo "Done. Shipped $archivename to $s3url"
