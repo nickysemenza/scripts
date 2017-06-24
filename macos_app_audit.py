@@ -29,7 +29,8 @@ remaps = {
 mypath = "/Applications"
 installed_applications = [f for f in listdir(mypath) if not isfile(join(mypath, f))]
 
-cask_packages = Command('brew cask list').run().output.split()
+cask_packages 	   = Command('brew cask list').run().output.split()
+mac_app_store_apps = Command('mas list').run().output.splitlines()
 
 # collect applications that are not default ones.
 user_applications = []
@@ -44,19 +45,24 @@ for x in installed_applications:
 		user_applications.append(name)
 
 # determine which applications weren't installed via brew cask
-non_cask_applications = []
+unmanged_applications = []
 for x in user_applications:
 
 	strip_dotapp = x[:-4] if (".app" in x) else x
 	trimmed = strip_dotapp.replace(" ", "-").lower()
 	is_casked = trimmed in cask_packages
-	print('{} -> {}:  {}'.format(x, trimmed, is_casked))
-	if(not is_casked):
-		non_cask_applications.append(x)
+	is_mas	  = any(strip_dotapp in s for s in mac_app_store_apps)
+	# print('{} -> {}:  {}|{}'.format(x, trimmed, is_casked, is_mas))
+	if(not is_casked and not is_mas):
+		unmanged_applications.append(x)
 
-print("-------------------")
+# print("-------------------")
 print("You have {} default applications.".format(len(default_applications)))
 print("Tou have {} brew cask applications.".format(len(cask_packages)))
-print("You have {} user applications Applications not managed by brew cask..\n------".format(len(non_cask_applications)))
-for x in non_cask_applications:
+print("Tou have {} app store applications.".format(len(mac_app_store_apps)))
+print("You have {} user applications Applications not managed by brew cask or app store...\n------".format(len(unmanged_applications)))
+for x in unmanged_applications:
 	print(x)
+
+
+# print(mac_app_store_apps)
